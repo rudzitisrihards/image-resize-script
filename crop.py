@@ -41,7 +41,7 @@ def process_image(src_path, subfolder, prefix, crops, orientation):
         cropped = img.crop(box)
         out_name = f"{prefix}_Ratio_{ratio_name}.jpg"
         out_path = subfolder / out_name
-        cropped.save(out_path, "JPEG", dpi=(300, 300))
+        cropped.save(out_path, "JPEG", dpi=(300, 300), quality=100, subsampling=0)
 
 
 def main():
