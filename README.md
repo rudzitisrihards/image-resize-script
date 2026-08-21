@@ -4,14 +4,16 @@ A Python 3 script that batch-crops JPEG images into multiple aspect ratios based
 
 ## What it does
 
-Given a folder of source JPEGs, the script center-crops each image into 6 standard aspect ratios and saves the results into numbered subfolders. No resizing is ever performed — output files are pure crops at exact pixel dimensions.
+Given a folder of source JPEGs, the script center-crops each image into 6 standard print aspect ratios, plus generates 1 downscaled mockup image, saving the results into numbered subfolders. Print crops are never resized — output files are pure crops at exact pixel dimensions.
 
-**Supported source dimensions:**
+**Supported source dimensions (±5px tolerance):**
 
 | Orientation | Dimensions |
 |-------------|------------|
 | Landscape   | 10630 × 7087 px |
 | Portrait    | 7087 × 10630 px |
+
+A source within 5px of a target size on either side is non-proportionally resized to the exact target dimensions before cropping, and the console logs a normalization note. Sources outside tolerance are skipped.
 
 **Output crops per image:**
 
@@ -31,17 +33,22 @@ All output files are saved at 300 DPI regardless of what the source file contain
 ```
 output/
 ├── 0001/
-│   ├── 0001_Ratio_1x1.jpg
-│   ├── 0001_Ratio_2x3.jpg
-│   ├── 0001_Ratio_3x4.jpg
-│   ├── 0001_Ratio_4x5.jpg
-│   ├── 0001_Ratio_5x7.jpg
-│   └── 0001_Ratio_A-size-EU.jpg
+│   ├── print/
+│   │   ├── 0001_Ratio_1x1.jpg
+│   │   ├── 0001_Ratio_2x3.jpg
+│   │   ├── 0001_Ratio_3x4.jpg
+│   │   ├── 0001_Ratio_4x5.jpg
+│   │   ├── 0001_Ratio_5x7.jpg
+│   │   └── 0001_Ratio_A-size-EU.jpg
+│   └── mockup/
+│       └── 0001_Ratio_2x3_small.jpg
 ├── 0002/
 │   └── ...
 ```
 
-Subfolder numbering starts at a user-specified value and is always zero-padded to 4 digits. The filename prefix always matches the subfolder name.
+Subfolder numbering starts at a user-specified value and is always zero-padded to 4 digits. The filename prefix always matches the numbered subfolder name.
+
+The `mockup/0001_Ratio_2x3_small.jpg` file is the full-source (2x3) image, proportionally downscaled to 2000px on its longest edge, saved at 72 DPI and full JPEG quality for use in manual mockup creation.
 
 ## Requirements
 
@@ -82,5 +89,7 @@ This processes all JPEGs in `originals/` alphabetically, creating subfolders sta
 - Both `.jpg` and `.jpeg` extensions are accepted
 - The output folder is created automatically — do not create it yourself
 - If the output folder already exists, the script exits without making any changes
-- Images with unexpected dimensions are skipped with a warning and do not consume a subfolder number
+- Images outside the ±5px tolerance for both orientations are skipped with a warning and do not consume a subfolder number
+- Images within tolerance but not an exact pixel match are non-proportionally resized to the exact target dimensions, logged as a normalization note, before any cropping happens
 - The `2x3` ratio is a full-source copy (no trimming) but is still re-saved with explicit 300 DPI metadata
+- The `mockup/*_small.jpg` file is a proportional (not stretched) downscale of the full source, capped at 2000px on the longest edge

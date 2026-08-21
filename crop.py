@@ -6,6 +6,8 @@ from PIL import Image
 LANDSCAPE = (10630, 7087)
 PORTRAIT = (7087, 10630)
 
+TOLERANCE = 5
+
 LANDSCAPE_CROPS = {
     "2x3":      (10630, 7087),
     "3x4":      (9449,  7087),
@@ -24,6 +26,8 @@ PORTRAIT_CROPS = {
     "A-size-EU":(7087, 10023),
 }
 
+MOCKUP_LONG_EDGE = 2000
+
 
 def compute_box(crop_w, crop_h, orientation):
     if orientation == "landscape":
@@ -34,14 +38,40 @@ def compute_box(crop_w, crop_h, orientation):
         return (0, y, crop_w, y + crop_h)
 
 
-def process_image(src_path, subfolder, prefix, crops, orientation):
-    img = Image.open(src_path)
+def match_orientation(dims):
+    for orientation, target in (("landscape", LANDSCAPE), ("portrait", PORTRAIT)):
+        if abs(dims[0] - target[0]) <= TOLERANCE and abs(dims[1] - target[1]) <= TOLERANCE:
+            return orientation, target
+    return None, None
+
+
+def process_image(img, subfolder, prefix, crops, orientation):
+    print_dir = subfolder / "print"
+    print_dir.mkdir()
     for ratio_name, (crop_w, crop_h) in crops.items():
         box = compute_box(crop_w, crop_h, orientation)
         cropped = img.crop(box)
         out_name = f"{prefix}_Ratio_{ratio_name}.jpg"
-        out_path = subfolder / out_name
+        out_path = print_dir / out_name
         cropped.save(out_path, "JPEG", dpi=(300, 300), quality=100, subsampling=0)
+
+
+def save_mockup(img, subfolder, prefix, orientation):
+    mockup_dir = subfolder / "mockup"
+    mockup_dir.mkdir()
+
+    if orientation == "landscape":
+        long_edge, short_edge = LANDSCAPE
+        new_w = MOCKUP_LONG_EDGE
+        new_h = round(short_edge * MOCKUP_LONG_EDGE / long_edge)
+    else:
+        short_edge, long_edge = PORTRAIT
+        new_h = MOCKUP_LONG_EDGE
+        new_w = round(short_edge * MOCKUP_LONG_EDGE / long_edge)
+
+    small = img.resize((new_w, new_h), Image.LANCZOS)
+    out_path = mockup_dir / f"{prefix}_Ratio_2x3_small.jpg"
+    small.save(out_path, "JPEG", dpi=(72, 72), quality=100, subsampling=0)
 
 
 def main():
@@ -79,23 +109,25 @@ def main():
         img = Image.open(src)
         dims = (img.width, img.height)
 
-        if dims == LANDSCAPE:
-            orientation = "landscape"
-            crops = LANDSCAPE_CROPS
-        elif dims == PORTRAIT:
-            orientation = "portrait"
-            crops = PORTRAIT_CROPS
-        else:
+        orientation, target = match_orientation(dims)
+        if orientation is None:
             print(f"Warning: skipping {src.name} — unexpected dimensions {img.width}×{img.height}")
             continue
+
+        crops = LANDSCAPE_CROPS if orientation == "landscape" else PORTRAIT_CROPS
+
+        if dims != target:
+            print(f"{src.name} was {dims[0]}x{dims[1]} – image normalized")
+            img = img.resize(target, Image.LANCZOS)
 
         prefix = f"{counter:04d}"
         subfolder = output_dir / prefix
         subfolder.mkdir()
 
         print(f"Processing {src.name} → {prefix}/ ({orientation})")
-        process_image(src, subfolder, prefix, crops, orientation)
-        print(f"  Done — 6 files written to {subfolder}")
+        process_image(img, subfolder, prefix, crops, orientation)
+        save_mockup(img, subfolder, prefix, orientation)
+        print(f"  Done — 6 print files + 1 mockup file written to {subfolder}")
 
         counter += 1
 
